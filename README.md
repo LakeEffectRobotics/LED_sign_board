@@ -24,6 +24,9 @@ Copy one of our programs and modify it!
 Upload your program
 ===================
 
-Fork the repository
-
-Issue a pull request
+*Sign up for GitHub
+*Ask Mr. Wood to be added to our repository
+*Clone the project
+*Fork the repository
+*Add your program
+*Issue a pull request
