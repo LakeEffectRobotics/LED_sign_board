@@ -1,0 +1,163 @@
+<script>
+
+var targetFiles = null;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function generateData(){
+	var colours = [[0,0,0]];
+	console.log("Generating");
+	var canvas = document.createElement('canvas');
+	//var canvas = document.getElementById('canvas');
+
+	
+	canvas.width = 10;
+	canvas.height = 10;
+	
+	images = [];
+	
+	for(var i = 0; i < targetFiles.length; i++){
+		var output = document.getElementById('preview');
+		output.src = URL.createObjectURL(targetFiles[i]);
+		//Wait for image to update
+		await sleep(100);
+		canvas.getContext('2d').drawImage(output, 0, 0, 10, 10);
+		var data = [];
+		for(var y = 0; y < 10; y++){
+			for(var x = 0; x < 10; x++){
+				console.log(x, y);
+				var pixelData = Array.prototype.slice.call(canvas.getContext('2d').getImageData(x, y, 1, 1).data);
+				var colour = [pixelData[0],pixelData[1],pixelData[2]];
+				//console.log(colour);
+				if(inArray(colours, colour)!=-1){
+					data.push(inArray(colours, colour));
+				}
+				else{
+					colours.push(colour)
+					data.push(colours.length-1);
+				}
+			}
+		}
+		images.push(data);
+	}
+	console.log(colours);
+	console.log(images);
+	generateCode(colours, images);
+}
+
+function start(){
+	rawData = generateData();
+}
+
+function generateCode(colours, data){
+
+
+	delay = document.getElementById('delay').value;
+	//Header
+	out ='\
+#include "FastLED.h"\n\
+#define NUM_LEDS 100\n\
+#define DATA_PIN 6\n\
+\n\
+// Define the array of leds\n\
+CRGB leds[NUM_LEDS];\n\
+\n\
+//Delay Between Images\n\
+int frameDelay = '+delay+';\n\
+// Function to reverse every second row of LEDs, as in the sign board:\n\
+int serpentine(int i) {\n\
+\tint r=i/10;\n\
+\tint c=i%10;\n\
+\tif ((r%2)==1)\n\
+\t\tc=9-c;\n\
+\treturn 10*r+c;\n\
+}\n\
+void setup() {\n\
+\tFastLED.addLeds&lt;WS2811, DATA_PIN, RGB>(leds, NUM_LEDS);\n\
+}\n\
+\n';
+	
+	//Add colours
+	out += 'int colours['+colours.length+'][3]={\n'
+	for(var i = 0; i<colours.length;i++){
+		out+='\t{'+colours[i][0]+','+colours[i][1]+','+colours[i][2]+'},\n'
+	}
+	out+='};\n\n'
+	//Add pixels
+	out+="int NUM_IMAGES = "+data.length+";\n";
+	out+="int images[][100]={\n\t\t"
+	for(var i = 0; i < data.length; i++){
+		out+="{";
+		for(var y = 0; y<10; y++){
+			for(var x = 0; x<10; x++){
+				out+=data[i][y*10+x]+",";
+			}
+			out+="\n\t\t";
+		}
+		out = out.slice(0,-4);
+		out+="},\n\n\t\t";
+	}
+	out = out.slice(0,-5);
+	out+="};\n\n";
+	
+	//Set leds
+	out += '\
+void loop() {\n\
+\tfor (int image = 0; image < NUM_IMAGES; image++){\n\
+\t\tfor (int i = 0; i < NUM_LEDS; i++) {\n\
+\t\t\tint colour = images[image][i];\n\
+\t\t\tleds[serpentine(i)] = CRGB(colours[colour][0],colours[colour][1],colours[colour][2]);\n\
+\t\t}\n\
+\tFastLED.show();\n\
+\tdelay(frameDelay);\n\t}';
+
+out+='\n}\n';
+
+			
+	console.log(out);
+	document.getElementById('output').innerHTML=out.split("\n").join("<br/>").split("\t").join("&nbsp&nbsp&nbsp&nbsp");	
+}
+
+function inArray(array, obj){
+	for(var i = 0; i< array.length; i++){
+		if(array[i].toString()==obj.toString()){
+			return i;
+		}
+	}
+	return -1;
+}
+
+function updateImage(event){
+    var output = document.getElementById('preview');
+	targetFiles = event.target.files;
+    output.src = URL.createObjectURL(event.target.files[0]);
+}
+</script>
+
+
+<input type="file" accept = "image/* "  onchange="updateImage(event)" multiple>
+</input>
+Delay:
+<input type="number" id = "delay" style="width:75px;">
+ms
+</input>
+<br/><br/>
+<img id = "preview" width="500" height="500" style=" 
+    image-rendering: optimizeSpeed;             /* STOP SMOOTHING, GIVE ME SPEED  */
+    image-rendering: -moz-crisp-edges;          /* Firefox                        */
+    image-rendering: -o-crisp-edges;            /* Opera                          */
+    image-rendering: -webkit-optimize-contrast; /* Chrome (and eventually Safari) */
+    image-rendering: pixelated; /* Chrome */
+    image-rendering: optimize-contrast;         /* CSS3 Proposed                  */
+    -ms-interpolation-mode: nearest-neighbor;   /* IE8+                           */
+"/>
+<br/><br/><br/>
+<button onclick="start();">
+   Generate
+</button>
+<br/>
+<h2>Output</h2>
+<p id="output" style="border:1px solid black;padding:2px;font-family:sans-serif"></p>
+
